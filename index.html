@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -19,8 +20,45 @@
         <!-- Toast Container -->
         <div id="toast-container"></div>
 
+        <!-- SCREEN 0: INTRO -->
+        <section id="intro-screen" class="screen active-screen">
+            <div class="intro-overlay">
+                <nav class="intro-nav">
+                    <div class="nav-brand">
+                        <div class="logo-icon-sm" style="color:white;">+</div>
+                        <div class="brand-text">
+                            <h2 style="color:white;">PATIL HOSPITAL</h2>
+                            <span style="color:#e6f2ff;">Smart Digital Healthcare System</span>
+                        </div>
+                    </div>
+                </nav>
+                <div class="intro-content">
+                    <h1 class="intro-title">Your Health, Our Priority</h1>
+                    <p class="intro-subtitle">Experience world-class healthcare with our smart digital platform. Book
+                        appointments, check live queues, and access your medical records seamlessly.</p>
+                    <button id="btn-goto-login" class="btn-primary intro-btn" style="width:auto;">Login / Patient
+                        Portal</button>
+
+                    <div class="intro-features">
+                        <div class="feature-box">
+                            <span class="f-icon">📅</span>
+                            <span class="f-text">Easy Booking</span>
+                        </div>
+                        <div class="feature-box">
+                            <span class="f-icon">👨‍⚕️</span>
+                            <span class="f-text">Top Specialists</span>
+                        </div>
+                        <div class="feature-box">
+                            <span class="f-icon">⏱️</span>
+                            <span class="f-text">Live Queue</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- SCREEN 1: LOGIN -->
-        <section id="login-screen" class="screen active-screen">
+        <section id="login-screen" class="screen">
             <div class="login-wrapper">
                 <div class="login-card">
                     <div class="hospital-logo">
@@ -103,10 +141,36 @@
                 <!-- Example: Hero, Cards, etc. -->
                 <div class="hero-section">
                     <div class="hero-overlay">
-                        <h1>Smart Hospital Appointment & Queue System</h1>
-                        <p>Book appointments, check live queue, and doctor availability in real time</p>
+                        <div class="hero-content-wrapper container">
+                            <div class="hero-text">
+                                <h1>Smart Hospital Appointment & Queue System</h1>
+                                <p>Book appointments, check live queue, and doctor availability in real time</p>
+                            </div>
+                            <div class="glass-widget">
+                                <h3>Find a Specialist</h3>
+                                <p style="font-size:0.9rem; color:#eee; margin-bottom:15px;">Book your appointment
+                                    instantly.</p>
+                                <div class="widget-search">
+                                    <select id="hero-dept-select" class="form-select hero-select">
+                                        <option value="">-- Choose Department --</option>
+                                        <option value="General Physician">General Physician</option>
+                                        <option value="Dental">Dental</option>
+                                        <option value="ENT">ENT</option>
+                                        <option value="Orthopedic">Orthopedic</option>
+                                        <option value="Cardiology">Cardiology</option>
+                                        <option value="Pediatrics">Pediatrics</option>
+                                    </select>
+                                    <button class="btn-primary hero-btn"
+                                        onclick="const d = document.getElementById('hero-dept-select').value; if(d){ document.getElementById('booking-dept').value = d; handleDashboardNav('appointments'); setTimeout(() => window.checkBookingAvailability(d), 100); } else { window.showToast('Please select a department', 'error'); }">Book
+                                        Now</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+
+
 
                 <div class="container section-padding">
                     <!-- Content placeholders -->
@@ -240,11 +304,10 @@
         <!-- PROFILE SIDE PANEL -->
         <div id="profile-overlay" class="overlay hidden">
             <div class="side-panel">
-                <div class="panel-header">
-                    <h3>Patient Profile</h3>
+                <div class="panel-header-bg">
                     <button id="close-profile-btn" class="close-btn">&times;</button>
                 </div>
-                <div class="panel-body">
+                <div class="panel-body" style="margin-top: -60px;">
                     <div class="profile-summary">
                         <div class="large-avatar" id="panel-initials">--</div>
                         <h2 id="panel-name">Guest User</h2>
@@ -267,7 +330,7 @@
 
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=3"></script>
 </body>
 
 </html>

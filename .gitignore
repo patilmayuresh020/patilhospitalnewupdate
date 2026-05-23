@@ -19,3 +19,12 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Sensitive files - DO NOT upload passwords!
+*.txt
+MySQL\ password*.txt
+*password*.txt
+
+# Large binary files
+*.pdf
+*.pptx

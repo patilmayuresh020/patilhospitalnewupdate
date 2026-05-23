@@ -3,7 +3,7 @@ const API_URL = '/api'; // Relative path (Same Origin)
 
 const appState = {
     user: null, // { name, age, mobile }
-    currentScreen: 'login-screen',
+    currentScreen: 'intro-screen',
     appointments: [],
     queue: {
         current: 0,
@@ -24,6 +24,58 @@ const departments = [
     { id: 'ped', name: 'Pediatrics', icon: '👶' }
 ];
 
+// Data: Mock Health Blogs (Phase 5) — 6 articles by 6 real doctors
+const healthBlogs = [
+    {
+        title: "Your Guide to Everyday Primary Healthcare",
+        dept: "General Physician",
+        excerpt: "Dr. Nikhil Patil explains how regular check-ups and healthy habits can prevent 80% of lifestyle diseases.",
+        img: "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
+        date: "Mar 5, 2026",
+        author: "Dr. Nikhil Patil"
+    },
+    {
+        title: "5 Daily Habits for a Healthy Smile",
+        dept: "Dental",
+        excerpt: "Dr. Sagar Patil shares the top dental hygiene tips to prevent cavities, gum disease, and bad breath.",
+        img: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
+        date: "Mar 4, 2026",
+        author: "Dr. Sagar Patil"
+    },
+    {
+        title: "Recognizing Early Signs of Hearing Loss",
+        dept: "ENT",
+        excerpt: "Dr. Pratiksha Patil explains the subtle warning signs of hearing and sinus issues you should never ignore.",
+        img: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
+        date: "Mar 3, 2026",
+        author: "Dr. Pratiksha Patil"
+    },
+    {
+        title: "Protecting Your Joints as You Age",
+        dept: "Orthopedic",
+        excerpt: "Dr. Sharma shares simple exercises and dietary advice to keep your bones and joints strong at every age.",
+        img: "https://images.unsplash.com/photo-1559000357-f6b52ddfbe37?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
+        date: "Mar 2, 2026",
+        author: "Dr. Sharma"
+    },
+    {
+        title: "5 Heart-Healthy Habits You Should Start Today",
+        dept: "Cardiology",
+        excerpt: "Dr. Tiwari shares simple lifestyle changes that can dramatically reduce your risk of cardiovascular disease.",
+        img: "https://images.unsplash.com/photo-1505576391880-b3f9d713dc4f?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
+        date: "Mar 1, 2026",
+        author: "Dr. Tiwari"
+    },
+    {
+        title: "Nutrition Guide for Your Growing Child",
+        dept: "Pediatrics",
+        excerpt: "Dr. Nethe offers a comprehensive guide on what your child needs at every stage to grow healthy and strong.",
+        img: "https://images.unsplash.com/photo-1514986888952-8cd320577b68?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
+        date: "Feb 28, 2026",
+        author: "Dr. Nethe"
+    }
+];
+
 // Data: Mock Reports
 const mockReports = {
     'R-101': {
@@ -39,6 +91,7 @@ const mockReports = {
 
 // DOM Elements
 const screens = {
+    intro: document.getElementById('intro-screen'),
     login: document.getElementById('login-screen'),
     dashboard: document.getElementById('dashboard-screen'),
     booking: document.getElementById('booking-screen'),
@@ -63,28 +116,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ACTION: Check for Persistent Login
     const saved = localStorage.getItem('patient_user');
-    if (saved) {
+    if (saved && saved !== "null") {
         try {
             appState.user = JSON.parse(saved);
-            console.log("Auto-login success:", appState.user);
-            updateUserProfileUI();
-            navigateTo('dashboard');
-            renderDashboardContent('home');
-            document.querySelector('.nav-btn[data-target="home"]').classList.add('active');
+            if (appState.user) {
+                console.log("Auto-login success:", appState.user);
+                updateUserProfileUI();
+                navigateTo('dashboard');
+                renderDashboardContent('home');
+                document.querySelector('.nav-btn[data-target="home"]').classList.add('active');
+            } else {
+                localStorage.removeItem('patient_user');
+            }
         } catch (e) {
             console.error("Session invalid:", e);
             localStorage.removeItem('patient_user');
         }
     }
 
-    // Start Live Queue Simulation
-    setInterval(() => {
-        if (Math.random() > 0.7) {
-            appState.queue.current++;
-            appState.queue.total += Math.floor(Math.random() * 2);
-            updateQueueUI();
-        }
-    }, 5000);
+    // Poll real queue data from server every 15 seconds
+    setInterval(fetchQueueUpdate, 15000);
 });
 
 // --- CORE FUNCTIONS ---
@@ -130,10 +181,10 @@ function initLogin() {
             return;
         }
 
-        // Allow 'admin' for doctor login
-        if (mobile !== 'admin' && !/^\d{10}$/.test(mobile)) {
-            alert("Invalid Mobile: Must be 10 digits");
-            errorDiv.textContent = "Please enter a valid 10-digit mobile number.";
+        // Allow any alphanumeric login ID for doctors (like 'admin1' or '9876543210')
+        if (mobile.length < 3) {
+            alert("Invalid Mobile/ID: Too short");
+            errorDiv.textContent = "Please enter a valid mobile number or Doctor ID.";
             return;
         }
 
@@ -171,6 +222,14 @@ function initLogin() {
 
 // 3. Navigation & Actions
 function initNavigation() {
+    // Intro nav
+    const btnGotoLogin = document.getElementById('btn-goto-login');
+    if (btnGotoLogin) {
+        btnGotoLogin.addEventListener('click', () => {
+            navigateTo('login');
+        });
+    }
+
     // Nav Buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -204,6 +263,9 @@ function initNavigation() {
 
     // Profile Panel
     document.getElementById('profile-trigger').addEventListener('click', () => {
+        if (appState.user) {
+            updateUserProfileUI(); // Fetch latest history when opened
+        }
         profilePanel.overlay.classList.remove('hidden');
     });
 
@@ -255,7 +317,14 @@ function updateUserProfileUI() {
     document.getElementById('booking-age').textContent = appState.user.age;
     document.getElementById('booking-mobile').textContent = appState.user.mobile;
 
-    renderAppointmentList();
+    // Fetch latest appointments for profile history
+    fetch(`/api/appointments?mobile=${appState.user.mobile}`)
+        .then(res => res.json())
+        .then(data => {
+            appState.appointments = data;
+            renderAppointmentList();
+        })
+        .catch(err => console.error("History fetch error:", err));
 }
 
 // 5. Dashboard View Switching
@@ -270,58 +339,210 @@ function handleDashboardNav(target) {
     }
 }
 
+function animateStats() {
+    const statElements = document.querySelectorAll('.animate-num');
+    statElements.forEach(el => {
+        const target = parseInt(el.getAttribute('data-target') || '0', 10);
+        const duration = 1500; // ms
+        const steps = 60; // 60 frames roughly
+        const stepAmt = target / steps;
+        let current = 0;
+
+        el.innerText = '0';
+
+        const update = () => {
+            current += stepAmt;
+            if (current < target) {
+                el.innerText = Math.ceil(current);
+                requestAnimationFrame(update);
+            } else {
+                el.innerText = target;
+            }
+        };
+        update();
+    });
+}
+
 function renderDashboardContent(view) {
     const container = document.getElementById('main-view-container');
     container.innerHTML = '';
 
-    // Hero Visibility
+    // Hero Visibility — only show hero banner on home/departments views
     const hero = document.querySelector('.hero-section');
-    if (hero) hero.classList.toggle('hidden', view !== 'home');
+    const isHome = (view === 'home' || view === 'departments');
+    if (hero) hero.classList.toggle('hidden', !isHome);
 
     if (view === 'home' || view === 'departments') {
+        // --- APPOINTMENT STATUS BANNER ---
+        if (view === 'home' && appState.user) {
+            const bannerDiv = document.createElement('div');
+            bannerDiv.className = 'apt-status-banner';
+
+            fetch(`/api/appointments?mobile=${appState.user.mobile}`)
+                .then(res => res.json())
+                .then(apts => {
+                    appState.appointments = apts;
+                    const activeApt = apts.find(a => ['Scheduled', 'Confirmed', 'Pending'].includes(a.status));
+                    if (activeApt) {
+                        const statusColor = activeApt.status === 'Confirmed' ? '#10B981' : '#3B82F6';
+                        const statusIcon = activeApt.status === 'Confirmed' ? '✅' : '📅';
+                        bannerDiv.innerHTML = `
+                            <div class="apt-status-booked">
+                                <div class="apt-status-icon">${statusIcon}</div>
+                                <div class="apt-status-info">
+                                    <h4>You have an Appointment</h4>
+                                    <p><strong>${activeApt.dept}</strong> &nbsp;|&nbsp; Dr. ${activeApt.doctor_name || 'Assigned'} &nbsp;|&nbsp; 📅 ${activeApt.date}</p>
+                                    <span class="apt-status-badge" style="background:${statusColor}">${activeApt.status}</span>
+                                </div>
+                                <button class="apt-view-btn" onclick="handleDashboardNav('appointments')">View Details →</button>
+                            </div>
+                        `;
+                    } else {
+                        bannerDiv.innerHTML = `
+                            <div class="apt-status-empty">
+                                <div class="apt-status-icon">🗓️</div>
+                                <div class="apt-status-info">
+                                    <h4>No Upcoming Appointments</h4>
+                                    <p>Book an appointment with one of our specialist doctors today.</p>
+                                </div>
+                                <button class="btn-primary apt-view-btn" onclick="window.startBooking()">Book Now →</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(err => console.error('Status banner fetch error:', err));
+
+            container.appendChild(bannerDiv);
+        }
+
+        // --- MEET THE SPECIALISTS ---
+        // Create a dedicated section div so order never shifts during async fills
+        const doctorsSection = document.createElement('div');
+        doctorsSection.id = 'doctors-section';
+        container.appendChild(doctorsSection);
+
+        // --- BLOGS SECTION (placed BELOW doctors in DOM now, always) ---
+        if (view === 'home') {
+            const blogsSection = document.createElement('div');
+            blogsSection.id = 'blogs-section';
+
+            const blogTitle = document.createElement('h3');
+            blogTitle.textContent = 'Health Insights & News';
+            blogTitle.style.marginTop = '40px';
+            blogTitle.style.marginBottom = '20px';
+            blogsSection.appendChild(blogTitle);
+
+            const blogGrid = document.createElement('div');
+            blogGrid.className = 'blog-grid';
+            blogGrid.id = 'blog-section';
+            healthBlogs.forEach(blog => {
+                const bCard = document.createElement('div');
+                bCard.className = 'blog-card';
+                bCard.innerHTML = `
+                    <div class="blog-img" style="background-image: url('${blog.img}')">
+                        <span class="blog-tag">${blog.dept}</span>
+                    </div>
+                    <div class="blog-content">
+                        <div class="blog-meta">${blog.date} &bull; ${blog.author}</div>
+                        <h4>${blog.title}</h4>
+                        <p>${blog.excerpt}</p>
+                    </div>
+                `;
+                blogGrid.appendChild(bCard);
+            });
+            blogsSection.appendChild(blogGrid);
+            container.appendChild(blogsSection);
+
+            // --- WELCOME TEXT SECTION (Appended AFTER blogs) ---
+            const welcomeSection = document.createElement('div');
+            welcomeSection.id = 'welcome-hospital-section';
+            welcomeSection.style.textAlign = 'center';
+            welcomeSection.style.margin = '60px auto 40px';
+            welcomeSection.style.maxWidth = '800px';
+            welcomeSection.innerHTML = `
+                <div style="display: inline-block; padding: 6px 16px; background: rgba(0, 102, 204, 0.1); color: var(--primary-blue); font-weight: 700; font-size: 0.85rem; border-radius: 30px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px;">
+                    Serving with Excellence Since 2025
+                </div>
+                <h2 style="font-family: var(--font-heading); font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; letter-spacing: -1px;">
+                    Welcome to Patil Hospital
+                </h2>
+                <p style="font-size: 1.15rem; color: var(--text-muted); font-weight: 400; line-height: 1.7; margin-bottom: 15px;">
+                    Committed to redefining healthcare through smart digital solutions. We combine advanced medical technology with compassionate, patient-centered care right in the heart of Jalgaon. 
+                </p>
+                <p style="font-size: 1.05rem; color: #888; line-height: 1.6; margin-bottom: 25px;">
+                    Our expert team of dedicated doctors — including <strong>Dr. Nikhil Patil</strong> (General Physician, MBBS MD), <strong>Dr. Sagar Patil</strong> (Dental, BDS MDS), <strong>Dr. Pratiksha Patil</strong> (ENT, MBBS MS), <strong>Dr. Sharma</strong> (Orthopedic, MBBS MS Ortho), <strong>Dr. Tiwari</strong> (Cardiology, MBBS MD DM) and <strong>Dr. Nethe</strong> (Pediatrics, MBBS MD) — is available to give you seamless and comfortable care round-the-clock.
+                </p>
+                <div style="display: inline-flex; align-items: center; gap: 10px; background: var(--primary-light); padding: 12px 24px; border-radius: 12px; border: 1px solid rgba(0, 102, 204, 0.15);">
+                    <span style="font-size: 1.4rem;">📍</span>
+                    <div style="text-align: left;">
+                        <div style="font-size: 0.75rem; color: var(--primary-blue); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Our Location</div>
+                        <div style="font-size: 1rem; color: var(--text-dark); font-weight: 500;">123 Health Valley, Wellness City, Jalgaon, Maharashtra 425001</div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(welcomeSection);
+        }
+
+        // --- FILL DOCTORS SECTION ---
         const title = document.createElement('h3');
-        title.textContent = 'Available Doctors';
+        title.textContent = 'Meet the Specialists';
         title.style.marginBottom = '15px';
-        container.appendChild(title);
+        doctorsSection.appendChild(title);
 
         const searchDiv = document.createElement('div');
         searchDiv.style.marginBottom = '25px';
         searchDiv.innerHTML = `
-            <input type="text" id="doctor-search" placeholder="🔍 Search doctors by name or department..." 
+            <input type="text" id="doctor-search" placeholder="🔍 Search doctors by name or department..."
             style="width:100%; padding:12px; border:1px solid #ccc; border-radius:8px; font-size:1rem;">
         `;
-        container.appendChild(searchDiv);
+        doctorsSection.appendChild(searchDiv);
 
-        // Add Event Listener
         const searchInput = searchDiv.querySelector('input');
         searchInput.addEventListener('input', (e) => filterDoctors(e.target.value));
 
         const loading = document.createElement('div');
         loading.textContent = 'Loading doctors...';
-        container.appendChild(loading);
+        doctorsSection.appendChild(loading);
 
         fetch('/api/doctors')
             .then(res => res.json())
             .then(doctors => {
                 loading.remove();
                 if (doctors.length === 0) {
-                    container.innerHTML += '<p>No doctors found.</p>';
+                    doctorsSection.innerHTML += '<p>No doctors found.</p>';
                     return;
                 }
 
-                // Filter duplicates by name just in case
                 const uniqueDocs = Array.from(new Map(doctors.map(item => [item.name, item])).values());
-
-                // Store uniqueDocs globally for filtering
                 window.allDoctors = uniqueDocs;
-                renderDoctorGrid(uniqueDocs, container);
+
+                const deptSelect = document.getElementById('booking-dept');
+                if (deptSelect) {
+                    uniqueDocs.forEach(doc => {
+                        let exists = false;
+                        for (let i = 0; i < deptSelect.options.length; i++) {
+                            if (deptSelect.options[i].value === doc.department) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists && doc.department) {
+                            const opt = document.createElement('option');
+                            opt.value = doc.department;
+                            opt.textContent = doc.department;
+                            deptSelect.appendChild(opt);
+                        }
+                    });
+                }
+
+                renderDoctorGrid(uniqueDocs, doctorsSection);
             })
             .catch(err => {
                 console.error(err);
-                container.innerHTML += '<p class="text-red">Error loading doctors.</p>';
+                doctorsSection.innerHTML += '<p class="text-red">Error loading doctors.</p>';
             });
-    }
-    else if (view === 'queue') {
+
+    } else if (view === 'queue') {
         container.innerHTML = `
             <h3>Live Queue Status</h3>
             <div class="queue-box">
@@ -339,6 +560,7 @@ function renderDashboardContent(view) {
                 </div>
                 <div class="mt-4 text-green" style="font-weight:500;">
                     <span class="status-dot available"></span> Live Updates Active
+                    <div style="font-size:0.8rem; color:#666; margin-top:5px;" id="live-update-time">Last updated: Just now</div>
                 </div>
             </div>
          `;
@@ -442,6 +664,7 @@ function renderDashboardContent(view) {
                             <div style="margin-top:5px; font-weight:500; color:${apt.status === 'Completed' ? 'green' : (apt.status === 'Cancelled' ? 'red' : '#0056b3')}">${apt.status}</div>
                         </div>
                          <div>
+                            <button class="nav-btn" style="border:1px solid #ccc; color:#0056b3; margin-bottom:5px;" onclick="window.viewAppointmentDetails(${apt.id})">🔍 View Details</button>
                             ${apt.status === 'Completed' ?
                                 `<button class="nav-btn" style="border:1px solid #ccc; color:#0056b3;" onclick="window.viewReport('${apt.id}')">📄 View Report</button>` :
                                 ''}
@@ -470,6 +693,13 @@ function updateQueueUI() {
         // Update Wait Time
         const waitEl = document.querySelector('.queue-stats .stat-item:last-child h4');
         if (waitEl) waitEl.textContent = `~${appState.queue.waitTime} min`;
+
+        // Update Live Time
+        const timeEl = document.getElementById('live-update-time');
+        if (timeEl) {
+            const now = new Date();
+            timeEl.textContent = `Last updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        }
     }
 }
 
@@ -527,12 +757,20 @@ function confirmBooking() {
     const dept = document.getElementById('booking-dept').value;
     if (!dept) return;
 
+    // Find the doctor's name based on the selected department
+    const doc = window.allDoctors ? window.allDoctors.find(d => d.department === dept) : null;
+    let doctorName = doc ? doc.name : null;
+    if (doc && doc.education) {
+        doctorName += ` (${doc.education})`;
+    }
+
     // API CALL: Book Appointment
     fetch('/api/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             dept: dept,
+            doctor_name: doctorName,
             date: new Date().toLocaleDateString(),
             mobile: appState.user.mobile,
             patient_name: appState.user.name,
@@ -542,10 +780,30 @@ function confirmBooking() {
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {
-                showToast(`Appointment Confirmed! ID: #${data.id}`, 'success');
-                updateUserProfileUI();
-                navigateTo('dashboard');
-                handleDashboardNav('queue');
+                const waitText = appState.queue && appState.queue.waitTime ? appState.queue.waitTime : '25';
+
+                Swal.fire({
+                    title: 'Appointment Confirmed!',
+                    html: `
+                        <div style="text-align: left; margin-top: 15px;">
+                            <p style="margin-bottom: 8px;"><strong>Booking ID:</strong> <span style="color:var(--primary-blue)">#${data.id}</span></p>
+                            <p style="margin-bottom: 8px;"><strong>Doctor:</strong> ${doctorName || 'Assigned Doctor'}</p>
+                            <p><strong>Department:</strong> ${dept}</p>
+                            <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+                            <div style="color: #d35400; font-size: 1.1rem; text-align: center; background: #fff3cd; padding: 12px; border-radius: 8px; font-weight: 500;">
+                                ⏱ Estimated Wait Time: <strong>~${waitText} Mins</strong>
+                            </div>
+                            <p style="margin-top: 15px; font-size: 0.85rem; color: #666; text-align: center;">Please arrive 10 minutes before your turn.</p>
+                        </div>
+                    `,
+                    icon: 'success',
+                    confirmButtonText: 'View Live Queue',
+                    confirmButtonColor: '#3C91E6',
+                }).then(() => {
+                    updateUserProfileUI();
+                    navigateTo('dashboard');
+                    handleDashboardNav('queue');
+                });
             }
         })
         .catch(err => showToast("Booking failed!", 'error'));
@@ -652,18 +910,24 @@ function renderAppointmentList() {
     const list = document.getElementById('history-list');
     const statusCard = document.getElementById('current-status-card');
 
-    // Sort reverse chronological
-    const history = [...appState.appointments].reverse();
+    // API returns appointments in descending order (newest first).
+    const history = appState.appointments || [];
 
     if (history.length === 0) {
         list.innerHTML = '<li style="padding:10px; color:#666;">No history yet.</li>';
         statusCard.textContent = "No active appointments";
         statusCard.style.borderLeftColor = "#666";
     } else {
-        const latest = history[0]; // Most recent
-        if (latest.status === 'Scheduled') {
-            statusCard.innerHTML = `<strong>${latest.dept}</strong><br>ID: #${latest.id} &bull; ${latest.status}`;
-            statusCard.style.borderLeftColor = "var(--accent-green)";
+        // Find the most recent ACTIVE appointment (Scheduled/Confirmed)
+        const latestActive = history.find(a => ['Scheduled', 'Confirmed', 'Pending'].includes(a.status));
+
+        if (latestActive) {
+            statusCard.innerHTML = `
+                <strong style="color:var(--text-dark); font-size:1.1rem;">${latestActive.dept}</strong><br>
+                <div style="font-size:0.9rem; color:#555; margin-top:4px;">Date: ${latestActive.date}</div>
+                <div style="font-size:0.9rem; margin-top:4px;">Status: <span style="color:var(--primary-blue); font-weight:600;">${latestActive.status}</span> (#${latestActive.id})</div>
+            `;
+            statusCard.style.borderLeftColor = "var(--primary-blue)";
         } else {
             statusCard.innerHTML = "No active appointments";
             statusCard.style.borderLeftColor = "#666";
@@ -672,13 +936,78 @@ function renderAppointmentList() {
         list.innerHTML = '';
         history.forEach(apt => {
             const li = document.createElement('li');
-            li.style.padding = '10px 0';
+            li.style.padding = '12px 0';
             li.style.borderBottom = '1px solid #eee';
-            li.innerHTML = `<strong>${apt.dept}</strong> - ${apt.date} (#${apt.id})`;
+
+            let statusColor = '#0056b3';
+            if (apt.status === 'Completed') statusColor = 'green';
+            if (apt.status === 'Cancelled') statusColor = 'red';
+
+            li.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                    <strong style="color:var(--text-dark);">${apt.dept}</strong>
+                    <span style="font-size: 0.85rem; color: #666;">${apt.date}</span>
+                </div>
+                <div style="font-size: 0.9rem; color: #555;">Doctor: ${apt.doctor_name || 'Assigned'}</div>
+                <div style="font-size: 0.85rem; margin-top: 5px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Status: <span style="color:${statusColor}; font-weight: 500;">${apt.status}</span> (#${apt.id})</span>
+                    <div>
+                        <button class="nav-btn" style="padding: 2px 8px; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 4px; margin-right:5px;" onclick="window.viewAppointmentDetails(${apt.id})" title="View Details">Details</button>
+                        <button class="nav-btn" style="padding: 2px 8px; font-size: 0.8rem; color: #dc3545; border: 1px solid #dc3545; border-radius: 4px;" onclick="window.deletePatientAppointment(${apt.id})" title="Remove Appointment">Delete</button>
+                    </div>
+                </div>
+            `;
             list.appendChild(li);
         });
     }
 }
+
+window.deletePatientAppointment = function (id) {
+    if (!confirm("Are you sure you want to remove this appointment?")) return;
+
+    fetch(`${API_URL}/appointments/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'deleted') {
+                showToast('Appointment removed successfully', 'success');
+                appState.appointments = appState.appointments.filter(a => a.id !== id);
+                renderAppointmentList();
+                // If on appointments tab, also refresh there
+                if (appState.currentScreen === 'dashboard-screen' && document.querySelector('.nav-btn[data-target="appointments"]').classList.contains('active')) {
+                    renderDashboardContent('appointments');
+                }
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Failed to remove appointment", 'error');
+        });
+};
+
+window.viewAppointmentDetails = function (id) {
+    const apt = appState.appointments.find(a => a.id === id);
+    if (!apt) return showToast("Appointment details not found.", "error");
+
+    Swal.fire({
+        title: 'Appointment Details',
+        html: `
+            <div style="text-align: left; margin-top: 15px;">
+                <p style="margin-bottom: 8px;"><strong>Patient Name:</strong> ${apt.patient_name || appState.user.name}</p>
+                <p style="margin-bottom: 8px;"><strong>Age:</strong> ${apt.patient_age || appState.user.age}</p>
+                <p style="margin-bottom: 8px;"><strong>Mobile Number:</strong> ${apt.patient_mobile || appState.user.mobile}</p>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+                <p style="margin-bottom: 8px;"><strong>Booking ID:</strong> <span style="color:var(--primary-blue)">#${apt.id}</span></p>
+                <p style="margin-bottom: 8px;"><strong>Doctor Name:</strong> Dr. ${apt.doctor_name || 'Assigned'}</p>
+                <p style="margin-bottom: 8px;"><strong>Department:</strong> ${apt.dept}</p>
+                <p style="margin-bottom: 8px;"><strong>Date:</strong> ${apt.date}</p>
+                <p><strong>Status:</strong> <span style="font-weight:600; color:${apt.status === 'Completed' ? 'green' : (apt.status === 'Cancelled' ? 'red' : 'var(--primary-blue)')}">${apt.status}</span></p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Close',
+        confirmButtonColor: '#3C91E6',
+    });
+};
 
 // 6.b Handle Contact
 window.handleContactSubmit = function (e) {
@@ -837,13 +1166,13 @@ function filterDoctors(query) {
         (doc.description && doc.description.toLowerCase().includes(term))
     );
 
-    // Find grid container
-    const container = document.getElementById('main-view-container');
-    // We need to keep the header and search box, just replace the grid
-    const oldGrid = container.querySelector('.grid-container');
+    // Target only the doctors-section div to avoid disturbing the blogs below
+    const doctorsSection = document.getElementById('doctors-section');
+    if (!doctorsSection) return;
+    const oldGrid = doctorsSection.querySelector('.carousel-container') || doctorsSection.querySelector('.grid-container');
     if (oldGrid) oldGrid.remove();
 
-    renderDoctorGrid(filtered, container);
+    renderDoctorGrid(filtered, doctorsSection);
 }
 
 function renderDoctorGrid(docs, container) {
@@ -866,15 +1195,15 @@ function renderDoctorGrid(docs, container) {
     if (existingMsg) existingMsg.remove();
 
     // 🔴 FIX: Check for existing grid and allow replacing it
-    const existingGrid = container.querySelector('.grid-container');
+    const existingGrid = container.querySelector('.carousel-container') || container.querySelector('.grid-container');
     if (existingGrid) existingGrid.remove();
 
     const grid = document.createElement('div');
-    grid.className = 'grid-container';
+    grid.className = 'carousel-container';
 
     docs.forEach(doc => {
         const card = document.createElement('div');
-        card.className = 'dept-card';
+        card.className = 'carousel-card';
         // Find Department Icon
         const deptObj = departments.find(dep => dep.name === doc.department);
         const deptIcon = deptObj ? deptObj.icon : '🩺';
@@ -903,6 +1232,7 @@ function renderDoctorGrid(docs, container) {
 
             <div style="margin-bottom: 5px;">
                 <h5 style="font-size: 1rem; font-weight: 600; color: var(--text-dark);">${doc.name}</h5>
+                ${doc.education ? `<span style="font-size: 0.85rem; color: #3C91E6; font-weight: 500;">${doc.education}</span>` : ''}
             </div>
             
             <div style="margin-bottom: 15px; color: #555; font-size: 0.9rem;">

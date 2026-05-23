@@ -204,6 +204,7 @@ function showSection(sectionId) {
         if (sectionId === 'doctors') loadDoctors();
         if (sectionId === 'patients') loadPatients();
         if (sectionId === 'appointments') loadAppointments();
+        if (sectionId === 'messages') loadMessages();
     }
 }
 
@@ -298,12 +299,33 @@ async function deleteDoctor(id) {
 
 
 async function openAddDoctorModal() {
+    // 1. Fetch current doctors to determine the next 'adminX' ID
+    let nextAdminId = 'admin1';
+    try {
+        const res = await fetch(`${API_BASE}/admin/doctors`);
+        const doctors = await res.json();
+
+        let maxNum = 0;
+        doctors.forEach(d => {
+            if (d.mobile && d.mobile.startsWith('admin')) {
+                const num = parseInt(d.mobile.replace('admin', ''));
+                if (!isNaN(num) && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        });
+        nextAdminId = `admin${maxNum + 1}`;
+    } catch (e) {
+        console.error("Error fetching admin doctors", e);
+    }
+
     const { value: formValues } = await Swal.fire({
         title: 'Add New Doctor',
         html:
             '<input id="swal-name" class="swal2-input" placeholder="Full Name">' +
-            '<input id="swal-mobile" class="swal2-input" placeholder="Mobile (Login ID)">' +
+            `<input id="swal-mobile" class="swal2-input" value="${nextAdminId}" readonly title="Auto-Generated Doctor ID/Password">` +
             '<input id="swal-dept" class="swal2-input" placeholder="Department">' +
+            '<input id="swal-edu" class="swal2-input" placeholder="Education / Degree (e.g., MBBS, MD)">' +
             '<input id="swal-room" class="swal2-input" placeholder="Room Number">' +
             '<input id="swal-desc" class="swal2-input" placeholder="Description">',
         focusConfirm: false,
@@ -312,6 +334,7 @@ async function openAddDoctorModal() {
                 name: document.getElementById('swal-name').value,
                 mobile: document.getElementById('swal-mobile').value,
                 department: document.getElementById('swal-dept').value,
+                education: document.getElementById('swal-edu').value,
                 room: document.getElementById('swal-room').value,
                 description: document.getElementById('swal-desc').value
             }
@@ -385,12 +408,109 @@ async function deletePatient(id) {
     }
 }
 
+// --- MESSAGES (Patient Contact Inbox) ---
+async function loadMessages() {
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:40px;"><i class="bx bx-loader-alt bx-spin" style="font-size:2rem;"></i><br>Loading messages...</p>';
+
+    try {
+        const response = await fetch(`${API_BASE}/doctor/messages`);
+        const messages = await response.json();
+
+        // Update badge count - clearing it since the user is now viewing the messages
+        const badge = document.getElementById('msg-badge');
+        if (badge) {
+            badge.style.display = 'none';
+            badge.textContent = '0';
+        }
+
+        if (messages.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:60px 20px; background:var(--bg-card); border-radius:16px; border:1px solid var(--border-color);">
+                    <i class='bx bx-envelope-open' style="font-size:4rem; color:var(--text-muted);"></i>
+                    <h3 style="margin-top:15px; color:var(--text-muted); font-weight:500;">No messages yet</h3>
+                    <p style="color:var(--text-muted); font-size:0.9rem;">Patient contact form submissions will appear here.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = '';
+        messages.forEach((msg, index) => {
+            const date = msg.created_at ? new Date(msg.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown Date';
+            const initials = (msg.name || 'AN').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const colors = ['#0066cc', '#10b981', '#f97316', '#8b5cf6', '#ef4444', '#00b3b3'];
+            const color = colors[index % colors.length];
+
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: var(--bg-card);
+                border: 1px solid var(--border-color);
+                border-radius: 16px;
+                padding: 24px 28px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+                display: flex;
+                gap: 20px;
+                align-items: flex-start;
+                transition: box-shadow 0.2s;
+            `;
+            card.onmouseenter = () => card.style.boxShadow = '0 8px 25px rgba(0,0,0,0.1)';
+            card.onmouseleave = () => card.style.boxShadow = '0 4px 15px rgba(0,0,0,0.05)';
+
+            card.innerHTML = `
+                <div style="width:48px; height:48px; border-radius:50%; background:${color}; color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; flex-shrink:0;">
+                    ${initials}
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+                        <div>
+                            <span style="font-weight:700; font-size:1rem; color:var(--text-dark);">${msg.name || 'Anonymous'}</span>
+                            <span style="margin-left:12px; background:var(--primary-light); color:var(--primary-blue); padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600;">${msg.subject || 'No Subject'}</span>
+                        </div>
+                        <span style="display:flex; align-items:center; gap:15px; font-size:0.82rem; color:var(--text-muted); white-space:nowrap;">
+                            <span><i class='bx bx-time-five'></i> ${date}</span>
+                            <button onclick="deleteMessage(${msg.id})" style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;" title="Delete Message">
+                                <i class='bx bx-trash'></i>
+                            </button>
+                        </span>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.6; margin:0; word-break:break-word;">${msg.message || ''}</p>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error('Error loading messages:', e);
+        container.innerHTML = '<p style="color:red; text-align:center; padding:40px;">Failed to load messages. Please check the server.</p>';
+    }
+}
+
+async function deleteMessage(id) {
+    if (!confirm("Are you sure you want to delete this message?")) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/messages/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadMessages(); // Refresh messages list
+        } else {
+            alert("Failed to delete message");
+        }
+    } catch (e) {
+        console.error("Error deleting message:", e);
+        alert("Error occurred while deleting message");
+    }
+}
 
 // INITIALIZATION & AUTO-REFRESH
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Force Dashboard Display
     showSection('dashboard');
     loadDashboard();
+    // Pre-load message badge count
+    fetch(`${API_BASE}/doctor/messages`).then(r => r.json()).then(msgs => {
+        const badge = document.getElementById('msg-badge');
+        if (badge && msgs.length > 0) { badge.textContent = msgs.length; badge.style.display = 'inline-flex'; }
+    }).catch(() => { });
 
     // 2. Setup Auto-Refresh (Every 10s)
     setInterval(() => {
@@ -402,6 +522,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (secId === 'doctors-section') loadDoctors();
             if (secId === 'patients-section') loadPatients();
             if (secId === 'appointments-section') loadAppointments();
+            if (secId === 'messages-section') loadMessages();
         }
     }, 10000);
 

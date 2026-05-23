@@ -88,6 +88,14 @@
                     <span class="text">Appointments</span>
                 </a>
             </li>
+            <li>
+                <a href="javascript:void(0);" onclick="showSection('messages')" id="messages-nav-link">
+                    <i class='bx bxs-envelope'></i>
+                    <span class="text">Messages</span>
+                    <span id="msg-badge"
+                        style="display:none; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; font-size:0.75rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; margin-left:auto;">0</span>
+                </a>
+            </li>
         </ul>
         <ul class="side-menu">
             <li>
@@ -255,6 +263,26 @@
                             <!-- JS Injected Day-wise Tables -->
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Messages Section -->
+            <div id="messages-section" class="admin-section" style="display: none;">
+                <div class="head-title">
+                    <div class="left">
+                        <h1>Patient Messages</h1>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Contact messages
+                            submitted by patients</p>
+                    </div>
+                    <button class="btn-download" onclick="loadMessages()" style="margin-left:auto;">
+                        <i class='bx bx-refresh'></i>
+                        <span class="text">Refresh</span>
+                    </button>
+                </div>
+
+                <div id="messages-container"
+                    style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+                    <!-- JS Injected Message Cards -->
                 </div>
             </div>
 
